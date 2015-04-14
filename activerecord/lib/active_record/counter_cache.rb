@@ -22,7 +22,7 @@ module ActiveRecord
       #   # For multiple counters for post with id #1
       #   Post.reset_counters(1, :comments, :tags)
       def reset_counters(ids, *counters)
-        counters.each do |counter_association|
+        counter_names = counters.inject({}) do |f, counter_association|
           has_many_association = _reflect_on_association(counter_association)
           unless has_many_association
             has_many = reflect_on_all_associations(:has_many)
@@ -38,11 +38,12 @@ module ActiveRecord
           foreign_key = has_many_association.foreign_key.to_s
           child_class = has_many_association.klass
           reflection = child_class._reflections.values.find { |e| e.belongs_to? && e.foreign_key.to_s == foreign_key && e.options[:counter_cache].present? }
-          counter_name = reflection.counter_cache_column
-
-          unscoped.where(primary_key => ids).find_each do |object|
-            unscoped.where(primary_key => object.id).update_all(counter_name => object.send(counter_association).count(:all))
-          end
+          f[reflection.counter_cache_column] = counter_association
+          f
+        end
+        unscoped.where(primary_key => ids).find_each do |object|
+          fields = counter_names.inject({}) {|f, (counter_name, counter_association)|  f[counter_name] = object.send(counter_association).count(:all); f }
+          unscoped.where(primary_key => object.id).update_all(fields)
         end
         return true
       end
