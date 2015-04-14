@@ -135,4 +135,14 @@ class IntegrationTest < ActiveRecord::TestCase
     owner = owners(:blackbeard)
     assert_equal "owners/#{owner.id}-#{owner.happy_at.utc.to_s(:nsec)}", owner.cache_key(:updated_at, :happy_at)
   end
+
+  def test_cache_key_for_relations
+    devs = Developer.all
+    assert_equal "developers/#{devs.ids.join(',')}-#{devs.maximum(:updated_at).utc.to_s(:nsec)}", Developer.cache_key(devs)
+  end
+
+  def test_cache_key_for_array
+    devs = Developer.all
+    assert_equal "#{devs.map{|dev| dev.cache_key}.join('/')}", Developer.cache_key(devs.to_a)
+  end
 end

@@ -69,6 +69,22 @@ module ActiveRecord
     end
 
     module ClassMethods
+      #Defines the class's cache key especially when trying to cache an array of values
+      #Product.cache_key(Product.first(3)) # => 'providers/1,2,3-20071224150000' (Max updated_at available)
+      #Product.cache_key(Product.first(3)) # => 'providers/1,2,3' (Max updated_at not available)
+      def cache_key(records)
+        if records.is_a?(ActiveRecord::Relation)
+          timestamp_name = (['updated_at', 'updated_on'] & column_names)[0]
+          if timestamp_name
+            "#{model_name.cache_key}/#{records.ids.join(',')}-#{records.maximum(timestamp_name).utc.to_s(cache_timestamp_format)}"
+          else
+            "#{model_name.cache_key}/#{records.ids.join(',')}"
+          end
+        elsif records.is_a?(Array)
+          "#{records.map{|record| record.cache_key}.join('/')}"
+        end
+      end
+
       # Defines your model's +to_param+ method to generate "pretty" URLs
       # using +method_name+, which can be any attribute or method that
       # responds to +to_s+.
